@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -9,6 +11,8 @@ from .gemini import generate_fitness_plan
 from .models import FitnessPlan
 from .serializers import FitnessPlanSerializer
 
+logger = logging.getLogger(__name__)
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -19,6 +23,7 @@ def generate_plan(request):
     try:
         plan_content = generate_fitness_plan(request.user, list(activity_data))
     except Exception as exc:
+        logger.exception("Plan generation failed")
         return Response(
             {"error": f"Failed to generate plan: {exc}"},
             status=status.HTTP_502_BAD_GATEWAY,

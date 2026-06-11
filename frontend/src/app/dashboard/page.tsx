@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
@@ -19,9 +19,19 @@ import ActivityCard from "@/components/ActivityCard";
 import StravaConnect from "@/components/StravaConnect";
 import PlanDisplay from "@/components/PlanDisplay";
 
+function StravaNotification({ onMessage }: { onMessage: (msg: string) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const connected = searchParams.get("strava_connected");
+    const err = searchParams.get("strava_error");
+    if (connected) onMessage("Strava connected successfully!");
+    if (err) onMessage(`Strava error: ${err.replace(/_/g, " ")}`);
+  }, [searchParams, onMessage]);
+  return null;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [user, setUser] = useState<User | null>(null);
   const [activities, setActivities] = useState<ActivityType[]>([]);
@@ -58,12 +68,8 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    const connected = searchParams.get("strava_connected");
-    const err = searchParams.get("strava_error");
-    if (connected) setStravaMsg("Strava connected successfully!");
-    if (err) setStravaMsg(`Strava error: ${err.replace(/_/g, " ")}`);
     loadData();
-  }, [loadData, searchParams]);
+  }, [loadData]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -129,6 +135,10 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        <Suspense fallback={null}>
+          <StravaNotification onMessage={setStravaMsg} />
+        </Suspense>
+
         {/* Welcome + stats bar */}
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-white">

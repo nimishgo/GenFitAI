@@ -1,10 +1,12 @@
 import time
 import requests
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core import signing
 from django.http import HttpResponseRedirect
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Activity, StravaProfile
@@ -19,23 +21,41 @@ STRAVA_API_BASE = "https://www.strava.com/api/v3"
 @permission_classes([IsAuthenticated])
 def strava_connect(request):
     """Return the Strava OAuth authorization URL."""
+    # Signed state identifies the user when Strava redirects the browser
+    # back to the callback (that request carries no JWT).
+    state = signing.dumps({"uid": request.user.id}, salt="strava-oauth")
     params = {
         "client_id": settings.STRAVA_CLIENT_ID,
         "redirect_uri": settings.STRAVA_REDIRECT_URI,
         "response_type": "code",
         "approval_prompt": "auto",
         "scope": "activity:read_all",
+        "state": state,
     }
     query = "&".join(f"{k}={v}" for k, v in params.items())
     return Response({"auth_url": f"{STRAVA_AUTH_URL}?{query}"})
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def strava_callback(request):
-    """Exchange OAuth code for tokens, store profile, sync activities."""
+    """Exchange OAuth code for tokens, store profile, sync activities.
+
+    Reached via browser redirect from Strava, so the user is identified
+    by the signed `state` parameter instead of a JWT.
+    """
     code = request.query_params.get("code")
     error = request.query_params.get("error")
+    state = request.query_params.get("state", "")
+
+    try:
+        payload = signing.loads(state, salt="strava-oauth", max_age=600)
+        user = get_user_model().objects.get(id=payload["uid"])
+    except (signing.BadSignature, signing.SignatureExpired, KeyError,
+            get_user_model().DoesNotExist):
+        return HttpResponseRedirect(
+            f"{settings.FRONTEND_URL}/dashboard?strava_error=invalid_state"
+        )
 
     if error or not code:
         return HttpResponseRedirect(
@@ -62,7 +82,7 @@ def strava_callback(request):
     athlete = data.get("athlete", {})
 
     profile, _ = StravaProfile.objects.update_or_create(
-        user=request.user,
+        user=user,
         defaults={
             "athlete_id": athlete.get("id"),
             "access_token": data["access_token"],
@@ -72,7 +92,7 @@ def strava_callback(request):
         },
     )
 
-    _sync_activities(request.user, profile)
+    _sync_activities(user, profile)
 
     return HttpResponseRedirect(f"{settings.FRONTEND_URL}/dashboard?strava_connected=true")
 

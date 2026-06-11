@@ -7,7 +7,7 @@ AI-powered personalized fitness dashboard. Connect your Strava account, sync you
 - **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS
 - **Backend**: Django 4.2, Django REST Framework, SimpleJWT
 - **Database**: PostgreSQL
-- **Integrations**: Strava OAuth API, Google Gemini (`gemini-1.5-flash`)
+- **Integrations**: Strava OAuth API, Google Gemini (`gemini-2.5-flash`)
 
 ## Project Structure
 
