@@ -6,16 +6,7 @@ import { useRouter } from "next/navigation";
 import { Zap, Mail, Lock, User, Target, Loader2 } from "lucide-react";
 import { authApi } from "@/lib/api";
 import { setTokens } from "@/lib/auth";
-
-const FITNESS_GOALS = [
-  "Lose weight",
-  "Build endurance",
-  "Run a 5K",
-  "Complete a marathon",
-  "Improve cycling speed",
-  "Build general fitness",
-  "Increase strength",
-];
+import { FITNESS_GOALS } from "@/lib/goals";
 
 export default function RegisterPage() {
   const router = useRouter();

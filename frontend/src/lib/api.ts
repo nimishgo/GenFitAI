@@ -56,6 +56,9 @@ export const authApi = {
     api.post("/api/auth/login/", { email, password }),
 
   me: () => api.get("/api/auth/me/"),
+
+  updateProfile: (data: { fitness_goal?: string; age?: number }) =>
+    api.patch<User>("/api/auth/me/", data),
 };
 
 export const stravaApi = {

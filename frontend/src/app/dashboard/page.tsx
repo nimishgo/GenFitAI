@@ -11,7 +11,9 @@ import {
   Zap,
   Loader2,
   CheckCircle2,
+  Pencil,
 } from "lucide-react";
+import { FITNESS_GOALS } from "@/lib/goals";
 import { authApi, stravaApi, plansApi } from "@/lib/api";
 import type { User, Activity as ActivityType, FitnessPlan } from "@/lib/api";
 import { clearTokens } from "@/lib/auth";
@@ -41,6 +43,9 @@ export default function DashboardPage() {
   const [generating, setGenerating] = useState(false);
   const [stravaMsg, setStravaMsg] = useState("");
   const [activeTab, setActiveTab] = useState<"activities" | "plan">("activities");
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState("");
+  const [savingGoal, setSavingGoal] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -90,6 +95,18 @@ export default function DashboardPage() {
       setActiveTab("plan");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleSaveGoal = async (regenerate: boolean) => {
+    setSavingGoal(true);
+    try {
+      const { data } = await authApi.updateProfile({ fitness_goal: goalDraft });
+      setUser(data);
+      setEditingGoal(false);
+      if (regenerate) await handleGeneratePlan();
+    } finally {
+      setSavingGoal(false);
     }
   };
 
@@ -145,11 +162,69 @@ export default function DashboardPage() {
             Welcome back
             {user?.username ? `, ${user.username.split("@")[0]}` : ""}!
           </h1>
-          {user?.fitness_goal && (
-            <p className="text-neutral-400 text-sm flex items-center gap-1.5">
-              <Brain className="w-3.5 h-3.5 text-orange-400" />
-              Goal: {user.fitness_goal}
-            </p>
+
+          {!editingGoal ? (
+            <div className="flex items-center gap-3">
+              <p className="text-neutral-400 text-sm flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-orange-400" />
+                Goal: {user?.fitness_goal || "Not set"}
+              </p>
+              <button
+                onClick={() => {
+                  setGoalDraft(user?.fitness_goal || "");
+                  setEditingGoal(true);
+                }}
+                className="text-xs text-orange-400 hover:text-orange-300 font-medium flex items-center gap-1 transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+                Change goal
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={goalDraft}
+                onChange={(e) => setGoalDraft(e.target.value)}
+                className="px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 transition"
+              >
+                <option value="">Select goal</option>
+                {FITNESS_GOALS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={() => handleSaveGoal(false)}
+                disabled={savingGoal || !goalDraft}
+                className="px-3 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-sm font-medium text-neutral-200 transition-colors border border-neutral-700 flex items-center gap-1.5"
+              >
+                {savingGoal && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Save
+              </button>
+
+              <button
+                onClick={() => handleSaveGoal(true)}
+                disabled={savingGoal || generating || !goalDraft}
+                className="px-3 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-sm font-semibold text-white transition-colors flex items-center gap-1.5"
+              >
+                {savingGoal || generating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                Save & Regenerate Plan
+              </button>
+
+              <button
+                onClick={() => setEditingGoal(false)}
+                disabled={savingGoal}
+                className="px-3 py-2 rounded-lg text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </div>
 

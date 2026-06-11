@@ -21,6 +21,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
 
 
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("age", "fitness_goal")
+
+
 class UserSerializer(serializers.ModelSerializer):
     strava_connected = serializers.SerializerMethodField()
 
