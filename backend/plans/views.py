@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from google.genai.errors import ServerError
 
 from strava.models import Activity
 from strava.serializers import ActivitySerializer
@@ -22,6 +23,12 @@ def generate_plan(request):
 
     try:
         plan_content = generate_fitness_plan(request.user, list(activity_data))
+    except ServerError as exc:
+        logger.warning("Gemini unavailable: %s", exc)
+        return Response(
+            {"error": "The AI service is temporarily busy. Please try again in a moment."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     except Exception as exc:
         logger.exception("Plan generation failed")
         return Response(

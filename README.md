@@ -1,5 +1,7 @@
 # GenFit AI
 
+![demo](./demo.gif)
+
 AI-powered personalized fitness dashboard. Connect your Strava account, sync your activity data, and let Google Gemini generate a tailored 7-day training plan based on your history and goals.
 
 ## Tech Stack

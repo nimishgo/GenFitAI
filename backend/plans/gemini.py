@@ -1,17 +1,22 @@
 import json
 import re
+import time
 from django.conf import settings
 from google import genai
-from google.genai import types
+from google.genai.errors import ServerError
 
 
-def generate_fitness_plan(user, activities: list[dict]) -> dict:
+def generate_fitness_plan(user, activities: list[dict], max_retries: int = 3) -> dict:
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     activity_summary = "\n".join(
         f"- {a['name']} ({a['sport_type']}): {a['distance'] / 1000:.1f} km, "
         f"{a['elapsed_time'] // 60} min"
-        + (f", avg HR {a['average_heartrate']} bpm" if a.get("average_heartrate") else "")
+        + (
+            f", avg HR {a['average_heartrate']} bpm"
+            if a.get("average_heartrate")
+            else ""
+        )
         for a in activities[:10]
     )
 
@@ -44,14 +49,28 @@ Return ONLY a valid JSON object with this exact structure:
 }}
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-    )
-    raw = response.text.strip()
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            break
+        except ServerError as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise last_error
+
+    raw = (response.text or "").strip()
 
     json_match = re.search(r"\{.*\}", raw, re.DOTALL)
-    if json_match:
-        return json.loads(json_match.group())
+    if not json_match:
+        raise ValueError(f"Model did not return valid JSON. Raw response: {raw[:500]}")
 
-    return {"summary": raw, "weekly_plan": [], "tips": []}
+    try:
+        return json.loads(json_match.group())
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Malformed JSON from model: {e}") from e
